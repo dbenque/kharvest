@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.grpc.examples.kharvest";
+option java_outer_classname = "KharvestProto";
+
+package kharvest;
+
+import "google/protobuf/timestamp.proto";
+
+// The greeting service definition.
+service Kharvest {
+  // Sends a greeting
+  rpc Notify (DataSignature) returns (NotifyReply) {}
+  rpc Store (Data) returns (StoreReply) {}
+}
+
+// The request message containing the user's name.
+message DataSignature {
+  string filename =1;
+  google.protobuf.Timestamp timestamp=2;
+  string md5=3;
+  string namespace=4;
+  string podName=5;
+  map<string,string> metadata=6;
+}
+
+message NotifyReply {
+  enum Action {
+    ACK = 0;
+    STORE_REQUESTED = 1;
+  }
+  Action action =1;
+}
+
+// The response message containing the greetings
+message Data {
+  DataSignature signature = 1;
+  bytes data =2; 
+}
+
+// The response message containing the greetings
+message StoreReply {
+  enum Action {
+    STORED = 0;
+    ERROR = 1;
+  }
+}
