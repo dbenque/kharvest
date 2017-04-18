@@ -19,5 +19,5 @@ type Store interface {
 	//Return true if the store already has at least one reference of such a {file,version} (ie with same content). First bool, file is known; Second bool, version already known
 	Has(signature *pb.DataSignature) (bool, bool)
 	//Store the content of the file. Return the number of version and the number of reference for the given version.
-	Store(signature *pb.Data) Action
+	Store(data *pb.Data) Action
 }
