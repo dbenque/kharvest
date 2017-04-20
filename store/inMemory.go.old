@@ -31,6 +31,17 @@ func NewInMemoryStorage() *InMemory {
 	}
 }
 
+//GetKeys returns all the keys already present in the store
+func (i *InMemory) GetKeys(keyGenerator func(*pb.DataSignature) string) map[string]struct{} {
+	result := map[string]struct{}{}
+	for _, md5Map := range i.files {
+		for _, d := range md5Map {
+			result[keyGenerator(d.Signature)] = struct{}{}
+		}
+	}
+	return result
+}
+
 //Has implements Store interface Has method
 func (i *InMemory) Has(signature *pb.DataSignature) (bool, bool) {
 	mMd5, ok := i.files[signature.GetFilename()]

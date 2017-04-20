@@ -7,6 +7,7 @@ import (
 
 	pb "github.com/dbenque/kharvest/kharvest"
 	"github.com/dbenque/kharvest/store"
+	"github.com/dbenque/kharvest/util"
 	"golang.org/x/net/context"
 
 	"time"
@@ -23,7 +24,8 @@ const (
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {
-	storage store.Store
+	storage  store.Store
+	dedupers DeduperMap
 }
 
 var _ pb.KharvestServer = &server{}
@@ -33,18 +35,28 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
-	pb.RegisterKharvestServer(s, &server{
-		storage: store.NewInMemoryStorage(),
-	})
+	grpcServer := grpc.NewServer()
+	server := &server{
+		storage:  store.NewInMemoryStorage(),
+		dedupers: DeduperMap{m: map[string]*Deduper{}},
+	}
+	server.initDedupers()
+	pb.RegisterKharvestServer(grpcServer, server)
 	// Register reflection service on gRPC server.
-	reflection.Register(s)
-	if err := s.Serve(lis); err != nil {
+	reflection.Register(grpcServer)
+
+	// go func() {
+	// 	for range time.NewTicker(time.Second).C {
+	// 		fmt.Printf("Keys: %#v\n", server.storage.GetKeys(BuildKeyString))
+	// 	}
+	// }()
+
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
 }
 
-//Deduper hold chan for a given signature
+//Deduper hold chan for a given sign
 type Deduper struct {
 	sync.Mutex
 	storeRequestChan chan bool
@@ -58,12 +70,6 @@ type DeduperMap struct {
 	m map[string]*Deduper
 }
 
-var dedupers DeduperMap
-
-func init() {
-	dedupers = DeduperMap{m: map[string]*Deduper{}}
-}
-
 //BuildResponse wait for the deduper signal a generate associated Notification reply
 func (d *Deduper) BuildResponse(key string) (*pb.NotifyReply, error) {
 	for {
@@ -75,7 +81,6 @@ func (d *Deduper) BuildResponse(key string) (*pb.NotifyReply, error) {
 				return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
 			}
 			if nextAttempt {
-				fmt.Println("NextAttempt")
 				return &pb.NotifyReply{Action: pb.NotifyReply_STORE_REQUESTED}, nil
 			}
 		}
@@ -91,7 +96,6 @@ func (d *Deduper) stop() {
 }
 func (d *Deduper) start(retryPeriod time.Duration) {
 	go func() {
-		fmt.Println("Start tick")
 		tick := time.NewTicker(retryPeriod)
 		defer tick.Stop()
 		for {
@@ -99,42 +103,55 @@ func (d *Deduper) start(retryPeriod time.Duration) {
 			case <-d.stopChan:
 				return
 			case <-tick.C:
-				fmt.Println("Tick")
 				d.storeRequestChan <- true // try another one
 			}
 		}
 	}()
 }
 
+//initDedupers get all the keys from the store
+func (s *server) initDedupers() {
+	for _, k := range s.storage.GetKeys(util.BuildKeyString) {
+		s.dedupers.m[k] = nil
+	}
+}
+
 func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*pb.NotifyReply, error) {
-	key := dataSignature.Filename + "." + dataSignature.Md5
+	key := BuildKeyString(dataSignature)
 	//Try in read only mode
-	dedupers.RLock()
-	deduper, ok := dedupers.m[key]
-	dedupers.RUnlock()
+	s.dedupers.RLock()
+	deduper, ok := s.dedupers.m[key]
+	s.dedupers.RUnlock()
 	if ok {
+		if deduper == nil {
+			return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
+		}
 		return deduper.BuildResponse(key)
 	}
 
 	//Ok grant write access
-	dedupers.Lock()
-	if deduper, ok := dedupers.m[key]; ok {
-		dedupers.Unlock()
+	s.dedupers.Lock()
+	if deduper, ok := s.dedupers.m[key]; ok {
+		s.dedupers.Unlock()
+		if deduper == nil {
+			return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
+		}
+
 		return deduper.BuildResponse(key)
 	}
 
 	deduper = &Deduper{storeRequestChan: make(chan bool), stopChan: make(chan struct{})}
-	dedupers.m[key] = deduper
-	dedupers.Unlock()
+	s.dedupers.m[key] = deduper
+	s.dedupers.Unlock()
 	deduper.start(2 * time.Second)
 	return &pb.NotifyReply{Action: pb.NotifyReply_STORE_REQUESTED}, nil
 }
 
 func (s *server) Store(ctx context.Context, data *pb.Data) (*pb.StoreReply, error) {
-	key := data.Signature.Filename + "." + data.Signature.Md5
-	dedupers.RLock()
-	deduper, ok := dedupers.m[key]
-	dedupers.RUnlock()
+	key := util.BuildKeyString(data.Signature)
+	s.dedupers.RLock()
+	deduper, ok := s.dedupers.m[key]
+	s.dedupers.RUnlock()
 	if !ok {
 		fmt.Println("Deduper was already cleaned!")
 		return &pb.StoreReply{}, nil
@@ -142,6 +159,5 @@ func (s *server) Store(ctx context.Context, data *pb.Data) (*pb.StoreReply, erro
 	action := s.storage.Store(data)
 	fmt.Printf("Store=%v for %s", action, key)
 	deduper.stop()
-
 	return &pb.StoreReply{}, nil
 }

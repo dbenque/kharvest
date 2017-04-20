@@ -1,0 +1,17 @@
+// From GOPATH
+mkdir src
+mkdir bin
+export PATH=$PATH:$GOPATH/bin
+
+// INSTALL PROTOBUF
+// http://www.grpc.io/docs/quickstart/go.html
+mkdir protobuf
+cd protobuf
+wget https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip
+unzip protoc-3.2.0-linux-x86_64.zip
+cd $GOPATH
+ln -s protobuf/bin/protoc bin/protoc
+
+go get google.golang.org/grpc
+go get -u github.com/golang/protobuf/{proto,protoc-gen-go}
+

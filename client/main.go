@@ -33,7 +33,7 @@ func main() {
 
 			data := pb.Data{
 				Data:      []byte("this is content for kharwest"),
-				Signature: &pb.DataSignature{Filename: "toto", Md5: "5"},
+				Signature: &pb.DataSignature{Filename: "toto", Md5: "6"},
 			}
 			r, err := c.Notify(context.Background(), data.Signature)
 			if err != nil {
