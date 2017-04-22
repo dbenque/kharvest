@@ -1,25 +1,36 @@
 package store
 
-import pb "github.com/dbenque/kharvest/kharvest"
+import (
+	"time"
 
-//Action type of action performed by the store
-type Action string
-
-//Definition of Action enum
-const (
-	Create       Action = "created"      // First time this file was seen by the store
-	NewVersion   Action = "newVersion"   // A new version of the file was created
-	NewReference Action = "newReference" // A new reference was added to that {file,version}
-	None         Action = "none"         // This {file,version} was already stored for same reference.
-	Error        Action = "error"
+	pb "github.com/dbenque/kharvest/kharvest"
 )
 
-//Store interface to persist and retrieve data of kharvest
+//Store give access to kharvest data storage
 type Store interface {
-	//GetKeys return the key strings generated from the content of the store
-	GetKeys(func(dataSignature *pb.DataSignature) string) map[string]struct{}
+	Writer
+	Reader
+	//GetKeyBuilder() func(dataSignature *pb.DataSignature) string
+}
+
+//Writer interface to persist data of kharvest
+type Writer interface {
 	//Store the content of the file. Return the number of version and the number of reference for the given version.
-	Store(data *pb.Data) Action
+	Store(data *pb.Data) error
 	//Reference associate all the metadata of the signature to the underlying data that must have been previously stored
 	Reference(dataSignature *pb.DataSignature) error
+}
+
+//Reader interface to consume data of kharvest
+type Reader interface {
+	//GetKeys return the key strings generated from the content of the store
+	GetKeys() map[string]struct{}
+	//GetSameReferences return all the references to the same data
+	GetSameReferences(dataSignature *pb.DataSignature) []*pb.DataSignature
+	//GetPodReferences return all the references for a given pod
+	GetPodReferences(namespace, podName string) []*pb.DataSignature
+	//GetReferencesAt return all the references for a given pod
+	GetReferencesAt(from, to time.Time) []*pb.DataSignature
+	//GetReferencesForMeta return all the references for a given pod
+	GetReferencesForMeta(key, value string) []*pb.DataSignature
 }
