@@ -15,3 +15,6 @@ ln -s protobuf/bin/protoc bin/protoc
 go get google.golang.org/grpc
 go get -u github.com/golang/protobuf/{proto,protoc-gen-go}
 
+//Client
+go get -u golang.org/x/sys/...
+go get github.com/fsnotify/fsnotify
