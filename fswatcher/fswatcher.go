@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 
 	"io/ioutil"
 
@@ -15,9 +16,10 @@ import (
 
 //FileContent notification with the type of modification and content
 type FileContent struct {
-	Content []byte
-	MD5     [md5.Size]byte
-	Op      fsnotify.Op
+	Filepath string
+	Content  []byte
+	MD5      [md5.Size]byte
+	Op       fsnotify.Op
 }
 
 //NewFileContent builds a new filecontent for the given paths
@@ -36,15 +38,16 @@ func NewFileContent(filepath string) *FileContent {
 		return nil
 	}
 
-	return &FileContent{Content: content, MD5: md5.Sum(content)}
+	return &FileContent{Content: content, MD5: md5.Sum(content), Filepath: filepath}
 }
 
 //FileWatcher monitor a given file on the file system and
 type FileWatcher struct {
-	filepathes []string
+	sync.Mutex
+	filepathes map[string]chan struct{}
 	resultChan chan *FileContent
 	watcher    *fsnotify.Watcher
-	stopChan   chan struct{}
+	stopChan   chan struct{} // Global stop
 }
 
 //GetEventChan return the channel for the events related to file changes
@@ -56,13 +59,16 @@ func (f *FileWatcher) GetEventChan() <-chan *FileContent {
 func (f *FileWatcher) Stop() {
 	close(f.stopChan)
 	f.watcher.Close()
+	close(f.resultChan)
 }
 
 //StartFileWatcher start a new file watcher for the
 func StartFileWatcher(filepathes []string) *FileWatcher {
 
+	mapFiles := map[string]chan struct{}{}
+
 	fileWatcher := &FileWatcher{
-		filepathes: filepathes,
+		filepathes: mapFiles,
 		resultChan: make(chan *FileContent, 10*len(filepathes)),
 		stopChan:   make(chan struct{}),
 	}
@@ -80,7 +86,7 @@ func StartFileWatcher(filepathes []string) *FileWatcher {
 				if !ok {
 					return
 				}
-				log.Printf("event: %#v", event)
+				//log.Printf("event: %#v", event)
 				switch event.Op {
 				case fsnotify.Create, fsnotify.Write:
 					fc := NewFileContent(event.Name)
@@ -91,6 +97,9 @@ func StartFileWatcher(filepathes []string) *FileWatcher {
 					fc.Op = event.Op
 					fileWatcher.resultChan <- fc
 					//Restart a filewatch for new create
+					fileWatcher.Lock()
+					delete(fileWatcher.filepathes, event.Name)
+					fileWatcher.Unlock()
 					go fileWatcher.startSingleFileWatch(event.Name)
 				}
 			case err := <-fileWatcher.watcher.Errors:
@@ -99,13 +108,86 @@ func StartFileWatcher(filepathes []string) *FileWatcher {
 		}
 	}()
 
-	for _, f := range filepathes {
-		go fileWatcher.startSingleFileWatch(f)
-	}
+	fileWatcher.Add(filepathes)
 	return fileWatcher
 }
 
+//Set the list of file to be watched
+func (f *FileWatcher) Set(filepaths []string) {
+	purgedMap := map[string]chan struct{}{}
+	toAdd := []string{}
+	f.Lock()
+	//Loop and keep intersection in purgedMap
+	for _, file := range filepaths {
+		if c, ok := f.filepathes[file]; ok {
+			purgedMap[file] = c
+			delete(f.filepathes, file)
+		} else {
+			toAdd = append(toAdd, file)
+		}
+	}
+
+	//everything that remain in the map need to be removed
+	for file, cancelChan := range f.filepathes {
+		if cancelChan == nil {
+			f.watcher.Remove(file)
+		} else {
+			close(cancelChan)
+		}
+	}
+
+	//update the map with what remain
+	f.filepathes = purgedMap
+	f.Unlock()
+
+	//append missing files
+	f.Add(toAdd)
+}
+
+//Add a new file to watcher
+func (f *FileWatcher) Add(filepaths []string) {
+	for _, filepath := range filepaths {
+		go f.startSingleFileWatch(filepath)
+	}
+}
+
+//Remove a new file to watcher
+func (f *FileWatcher) Remove(filepaths []string) {
+	f.Lock()
+	defer f.Unlock()
+	for _, filepath := range filepaths {
+		if cancelChan, ok := f.filepathes[filepath]; !ok {
+			fmt.Printf("Unknown: File %s\n", filepath)
+			return
+		} else if cancelChan == nil {
+			f.watcher.Remove(filepath)
+		} else {
+			close(cancelChan)
+		}
+		delete(f.filepathes, filepath)
+	}
+}
+
+//List all the files being watched
+func (f *FileWatcher) List() []string {
+	f.Lock()
+	defer f.Unlock()
+	result := []string{}
+	for k := range f.filepathes {
+		result = append(result, k)
+	}
+	return result
+}
 func (f *FileWatcher) startSingleFileWatch(filepath string) {
+	f.Lock()
+	if _, ok := f.filepathes[filepath]; ok {
+		f.Unlock()
+		fmt.Printf("Skip: File %s was already registered for watch\n", filepath)
+		return
+	}
+	cancelChan := make(chan struct{})
+	f.filepathes[filepath] = cancelChan
+	f.Unlock()
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	for {
@@ -125,9 +207,14 @@ func (f *FileWatcher) startSingleFileWatch(filepath string) {
 			fc := NewFileContent(filepath)
 			fc.Op = fsnotify.Create
 			f.resultChan <- fc
-			return
+			f.Lock()
+			f.filepathes[filepath] = nil
+			close(cancelChan)
+			f.Unlock()
 		case <-f.stopChan:
-			return
+			return // this is full stop of the watcher
+		case <-cancelChan:
+			return // this is because a given file has been removed from the map or a fsnotifier is now running
 		}
 	}
 }
