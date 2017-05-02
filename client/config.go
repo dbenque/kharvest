@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	configPath = "/etc/kharvest.conf"
+	ConfigPath = "/etc/kharvest.conf"
 )
 
 //ListOfFile list of files given in arguments of the program
@@ -27,15 +27,15 @@ func (i *ListOfFile) String() string {
 
 //Config Configuration for file watching
 type Config struct {
-	files      ListOfFile
+	Files      ListOfFile
 	filesChan  chan []string
-	configPath string
+	ConfigPath string
 	stopChan   chan struct{}
 }
 
 //NewConfig create an empty config object
 func NewConfig() *Config {
-	return &Config{files: []string{}, configPath: "", filesChan: make(chan []string, 2)}
+	return &Config{Files: []string{}, ConfigPath: "", filesChan: make(chan []string, 2)}
 }
 
 //StopWatching will stop watching configuration file if watch was running
@@ -48,13 +48,13 @@ func (c *Config) StopWatching() {
 
 //ReadAndWatch read the configuration and if it is a config file, watch the configuration to apply changes live.
 func (c *Config) ReadAndWatch() error {
-	if len(c.files) > 0 {
-		c.filesChan <- c.files
+	if len(c.Files) > 0 {
+		c.filesChan <- c.Files
 		close(c.filesChan)
 		return nil
 	}
 
-	_, err := ioutil.ReadFile(c.configPath)
+	_, err := ioutil.ReadFile(c.ConfigPath)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (c *Config) ReadAndWatch() error {
 
 	go func() {
 		//watch the config to update the fswatch if needed
-		watcher := fswatcher.StartFileWatcher([]string{c.configPath})
+		watcher := fswatcher.StartFileWatcher([]string{c.ConfigPath})
 		for {
 			select {
 			case confChange, ok := <-watcher.GetEventChan():
@@ -73,8 +73,8 @@ func (c *Config) ReadAndWatch() error {
 				}
 				// fmt.Printf("ConfEvent %s\n", confChange.Op)
 				if len(confChange.Content) > 0 {
-					c.files = strings.Split(string(confChange.Content), "\n")
-					c.filesChan <- c.files
+					c.Files = strings.Split(string(confChange.Content), "\n")
+					c.filesChan <- c.Files
 				} else {
 					// the config was erased or empty
 					c.filesChan <- []string{}

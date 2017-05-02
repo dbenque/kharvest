@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"log"
@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	port = ":8989"
+	port = ":80"
 )
 
 // server is used to implement helloworld.GreeterServer.
@@ -31,13 +31,18 @@ type server struct {
 var _ pb.KharvestServer = &server{}
 
 func main() {
+	RunKharvestServer()
+}
+
+//RunKharvestServer run the server for kharvest
+func RunKharvestServer() {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
 	grpcServer := grpc.NewServer()
 	server := &server{
-		storage:  store.NewInMemoryStorage(),
+		storage:  store.NewInMemStore(util.BuildKeyString, 30),
 		dedupers: DeduperMap{m: map[string]*Deduper{}},
 	}
 	server.initDedupers()
@@ -45,15 +50,10 @@ func main() {
 	// Register reflection service on gRPC server.
 	reflection.Register(grpcServer)
 
-	// go func() {
-	// 	for range time.NewTicker(time.Second).C {
-	// 		fmt.Printf("Keys: %#v\n", server.storage.GetKeys(BuildKeyString))
-	// 	}
-	// }()
-
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+
 }
 
 //Deduper hold chan for a given sign
@@ -111,13 +111,14 @@ func (d *Deduper) start(retryPeriod time.Duration) {
 
 //initDedupers get all the keys from the store
 func (s *server) initDedupers() {
-	for _, k := range s.storage.GetKeys(util.BuildKeyString) {
+	for k := range s.storage.GetKeys() {
 		s.dedupers.m[k] = nil
 	}
 }
 
 func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*pb.NotifyReply, error) {
-	key := BuildKeyString(dataSignature)
+	fmt.Printf("Receive Notification: %#v\n", *dataSignature)
+	key := util.BuildKeyString(dataSignature)
 	//Try in read only mode
 	s.dedupers.RLock()
 	deduper, ok := s.dedupers.m[key]
@@ -148,6 +149,8 @@ func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*
 }
 
 func (s *server) Store(ctx context.Context, data *pb.Data) (*pb.StoreReply, error) {
+	fmt.Printf("Receive Store(%d): %#v\n", len(data.Data), data.Signature)
+	defer fmt.Println("Store done")
 	key := util.BuildKeyString(data.Signature)
 	s.dedupers.RLock()
 	deduper, ok := s.dedupers.m[key]
@@ -157,7 +160,7 @@ func (s *server) Store(ctx context.Context, data *pb.Data) (*pb.StoreReply, erro
 		return &pb.StoreReply{}, nil
 	}
 	action := s.storage.Store(data)
-	fmt.Printf("Store=%v for %s", action, key)
+	fmt.Printf("Store=%v for %s\n", action, key)
 	deduper.stop()
 	return &pb.StoreReply{}, nil
 }
