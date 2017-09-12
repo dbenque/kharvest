@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +14,7 @@ import (
 )
 
 func main() {
+	log.Println("Starting kharvestclient")
 	flag.Parse()
 	deployer.AutoDeploy()
 
@@ -35,6 +37,7 @@ func main() {
 		time.Sleep(2 * time.Second) // graceful stop of watchers.
 		close(exitChan)
 	}()
+	log.Println("Running KharvestClient")
 	client.RunKharvestClient(conf)
 	<-exitChan
 }

@@ -6,6 +6,7 @@ option java_outer_classname = "KharvestProto";
 
 package kharvest;
 
+import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // The greeting service definition.
@@ -13,6 +14,26 @@ service Kharvest {
   // Sends a greeting
   rpc Notify (DataSignature) returns (NotifyReply) {}
   rpc Store (Data) returns (StoreReply) {}
+}
+
+service KharvestUserAPI {
+	//Keys return the key strings generated from the content of the store
+	rpc Keys (google.protobuf.Empty) returns (KeysReply) {}
+	//GetSameReferences return all the references to the same data
+	//GetSameReferences(dataSignature *pb.DataSignature) []*pb.DataSignature
+  
+  //GetPodReferences return all the references for a given pod
+	//GetPodReferences(namespace, podName string) []*pb.DataSignature
+  
+  //GetReferencesAt return all the references for a given pod
+  //GetReferencesAt(from, to time.Time) []*pb.DataSignature
+  
+	//GetReferencesForMeta return all the references for a given pod
+	//GetReferencesForMeta(key, value string) []*pb.DataSignature
+}
+
+message KeysReply {
+  repeated string keys =1;
 }
 
 // The request message containing the user's name.

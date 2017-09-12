@@ -3,6 +3,8 @@ apiVersion: v1
 metadata:
   name: kharvest-client
   namespace: default
+  labels:
+    demo: kharvest
 data:
   kharvest.cfg: |-
     /cfg/cmkharvest/file1
