@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"google.golang.org/grpc"
@@ -20,31 +19,6 @@ const (
 	servicePort = "80"
 )
 
-// func main() {
-// 	sigs := make(chan os.Signal, 1)
-// 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-// 	exitChan := make(chan struct{})
-
-// 	conf := NewConfig()
-// 	flag.Var(&conf.files, "files", "List of files")
-// 	flag.StringVar(&conf.configPath, "config", configPath, "Config with list of files")
-// 	flag.Parse()
-// 	if err := conf.ReadAndWatch(); err != nil {
-// 		fmt.Fprintf(os.Stderr, "Can't read configuration: %v", err)
-// 		return
-// 	}
-
-// 	//Termination of program
-// 	go func() {
-// 		<-sigs
-// 		conf.StopWatching()
-// 		time.Sleep(2 * time.Second) // graceful stop of watchers.
-// 		close(exitChan)
-// 	}()
-// 	runKharvestClient(conf)
-// 	<-exitChan
-// }
-
 //RunKharvestClient Run the kharvest client
 func RunKharvestClient(conf *Config) {
 	fileWatcher := fswatcher.StartFileWatcher([]string{})
@@ -54,12 +28,12 @@ func RunKharvestClient(conf *Config) {
 		for {
 			files, ok := <-conf.filesChan
 			if !ok {
-				fmt.Printf("The configuration is now immutable: %v", currentConfig)
+				log.Printf("[kharvest] The configuration is now immutable: %v", currentConfig)
 				break
 			}
 			currentConfig = files
 			fileWatcher.Set(files)
-			fmt.Printf("files: %#v\n", files)
+			log.Printf("[kharvest] files: %#v\n", files)
 		}
 	}()
 
@@ -67,7 +41,7 @@ func RunKharvestClient(conf *Config) {
 	go func() {
 		conn, err := grpc.Dial(net.JoinHostPort(serviceName, servicePort), grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("did not connect: %v", err)
+			log.Fatalf("[kharvest] [error] grpc client error: %v", err) //Error
 		}
 		defer conn.Close()
 		kharvestServer := pb.NewKharvestClient(conn)
@@ -83,15 +57,15 @@ func RunKharvestClient(conf *Config) {
 			}
 			r, err := kharvestServer.Notify(context.Background(), data.Signature)
 			if err != nil {
-				fmt.Printf("ERROR:%v\n", err)
+				log.Printf("[kharvest] [error] Error on Notify: %v", err) //Error
 			} else if r.Action == pb.NotifyReply_ACK {
-				fmt.Printf("ACK\n")
+				log.Printf("[kharvest] Server ack for file: %s", event.Filepath)
 			} else if r.Action == pb.NotifyReply_STORE_REQUESTED {
-				fmt.Printf("STORE REQUESTED\n")
+				log.Printf("[kharvest] Server requests store for file: %s", event.Filepath)
 				if _, err := kharvestServer.Store(context.Background(), &data); err != nil {
-					fmt.Printf("STORE ERROR:%v\n", err)
+					log.Printf("[kharvest] [error]  Server fails storing file %s, error: %v", event.Filepath, err) //Error
 				} else {
-					fmt.Printf("STORE COMPLETED\n")
+					log.Printf("[kharvest] Storage done for file: %s", event.Filepath)
 				}
 			}
 		}

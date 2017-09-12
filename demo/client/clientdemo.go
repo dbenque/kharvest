@@ -21,7 +21,7 @@ func main() {
 	exitChan := make(chan struct{})
 
 	conf := client.NewConfig()
-	conf.Files = []string{"/cfg/cmkharvest/file1", "/cfg/cmkharvest/file2", "/cfg/cmkharvest/file3"}
+	conf.ConfigPath = "/cfg/kharvest-client/kharvest.cfg"
 	flag.Parse()
 	if err := conf.ReadAndWatch(); err != nil {
 		fmt.Fprintf(os.Stderr, "Can't read configuration: %v", err)

@@ -1,0 +1,10 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: kharvest-client
+  namespace: default
+data:
+  kharvest.cfg: |-
+    /cfg/cmkharvest/file1
+    /cfg/cmkharvest/file2
+    /cfg/cmkharvest/file3
