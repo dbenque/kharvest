@@ -63,3 +63,5 @@ echo -e $BOLD"kubectl logs $(kubectl get pod -l run=kharvest -ojsonpath='{.items
 echo -e $BOLD"kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[0].metadata.name}')"$NO
 echo -e $BOLD"kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[1].metadata.name}')"$NO
 echo -e $BOLD"kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[2].metadata.name}')"$NO
+
+# go run *.go -k="$(minikube ip):$(kubectl get svc kharvest -ojsonpath='{.spec.ports[?(@.name=="user")].nodePort}')"

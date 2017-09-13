@@ -32,6 +32,7 @@ var _ pb.KharvestServer = &server{}
 
 //RunKharvestServer run the server for kharvest
 func RunKharvestServer() {
+	log.Println("[kharvest] starting server...")
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("[kharvest] [error] failed to listen: %v", err)

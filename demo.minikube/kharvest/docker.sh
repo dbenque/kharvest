@@ -10,3 +10,4 @@ if [ ! $? -eq 0 ]; then
  echo -e "docker go build failed"
  exit 1
 fi
+rm ./kharvest >/dev/null 2>&1

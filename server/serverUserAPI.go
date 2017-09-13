@@ -26,6 +26,7 @@ var _ pb.KharvestUserAPIServer = &serverUserAPI{}
 
 //RunKharvestServerUserAPI Runs the userAPI server for kharvest
 func RunKharvestServerUserAPI() {
+	log.Println("[kharvestuserAPI] starting server...")
 	lis, err := net.Listen("tcp", portAPIUser)
 	if err != nil {
 		log.Fatalf("[kharvestuserAPI] [error] failed to listen: %v", err)
@@ -56,6 +57,5 @@ func (s *serverUserAPI) Keys(context.Context, *google_protobuf.Empty) (*pb.KeysR
 		reply.Keys[i] = key
 		i++
 	}
-
 	return reply, nil
 }

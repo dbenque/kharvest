@@ -7,8 +7,13 @@ metadata:
 spec:
   ports:
   - port: 80
+    name: internal
     protocol: TCP
     targetPort: 80
+  - port: 81
+    name: user
+    protocol: TCP
+    targetPort: 81
   selector:
     run: kharvest
-  type: ClusterIP
+  type: NodePort

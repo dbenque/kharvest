@@ -11,5 +11,7 @@ func main() {
 	flag.Parse()
 	deployer.AutoDeploy()
 
+	go server.RunKharvestServerUserAPI()
 	server.RunKharvestServer()
+
 }
