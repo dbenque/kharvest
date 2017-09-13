@@ -10,19 +10,18 @@ import (
 	"time"
 
 	"github.com/dbenque/kharvest/client"
-	"github.com/dbenque/toKube/deployer"
 )
 
 func main() {
 	log.Println("Starting kharvestclient")
 	flag.Parse()
-	deployer.AutoDeploy()
+	//	deployer.AutoDeploy()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	exitChan := make(chan struct{})
 
-	conf := client.NewConfig()
+	conf := client.NewConfig(os.Getenv("PODNAME"), os.Getenv("NAMESPACE"))
 	conf.ConfigPath = "/cfg/kharvest-client/kharvest.cfg"
 	flag.Parse()
 	if err := conf.ReadAndWatch(); err != nil {

@@ -1,0 +1,43 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    demo: kharvest
+  name: kharvestclient
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: kharvestclient
+  template:
+    metadata:
+      labels:
+        run: kharvestclient
+    spec:
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: cmkharvest
+        name: config-cmkharvest
+      - configMap:
+          defaultMode: 420
+          name: kharvest-client
+        name: config-kharvest-client
+      containers:
+      - image: kharvestclient:latest
+        imagePullPolicy: IfNotPresent
+        name: kharvestclient
+        volumeMounts:
+        - mountPath: /cfg/cmkharvest
+          name: config-cmkharvest
+        - mountPath: /cfg/kharvest-client
+          name: config-kharvest-client
+        env:
+        - name: PODNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
