@@ -1,4 +1,0 @@
-kubectl create configmap cmkharvest --from-file=file1
-cd client
-go run *.go --deploy --configMaps='["cmkharvest"]'
-cd ..

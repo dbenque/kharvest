@@ -53,7 +53,7 @@ func RunKharvestClient(conf *Config) {
 			}
 			data := pb.Data{
 				Data:      event.Content,
-				Signature: &pb.DataSignature{Filename: event.Filepath, Md5: string(event.MD5[:md5.Size])},
+				Signature: &pb.DataSignature{Filename: event.Filepath, Md5: string(event.MD5[:md5.Size]), PodName: conf.podName, Namespace: conf.namespace},
 			}
 			r, err := kharvestServer.Notify(context.Background(), data.Signature)
 			if err != nil {

@@ -27,15 +27,16 @@ func (i *ListOfFile) String() string {
 
 //Config Configuration for file watching
 type Config struct {
-	Files      ListOfFile
-	filesChan  chan []string
-	ConfigPath string
-	stopChan   chan struct{}
+	Files              ListOfFile
+	filesChan          chan []string
+	ConfigPath         string
+	stopChan           chan struct{}
+	podName, namespace string
 }
 
 //NewConfig create an empty config object
-func NewConfig() *Config {
-	return &Config{Files: []string{}, ConfigPath: "", filesChan: make(chan []string, 2)}
+func NewConfig(podName, namespace string) *Config {
+	return &Config{Files: []string{}, ConfigPath: "", filesChan: make(chan []string, 2), podName: podName, namespace: namespace}
 }
 
 //StopWatching will stop watching configuration file if watch was running

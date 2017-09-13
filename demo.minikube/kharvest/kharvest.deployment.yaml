@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    demo: kharvest
+  name: kharvest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      run: kharvest
+  template:
+    metadata:
+      labels:
+        run: kharvest
+    spec:
+      containers:
+      - image: kharvest:latest
+        imagePullPolicy: IfNotPresent
+        name: kharvest

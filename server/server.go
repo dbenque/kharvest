@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"log"
 	"net"
 	"os"
@@ -29,10 +30,6 @@ type server struct {
 
 var _ pb.KharvestServer = &server{}
 
-func main() {
-	RunKharvestServer()
-}
-
 //RunKharvestServer run the server for kharvest
 func RunKharvestServer() {
 	lis, err := net.Listen("tcp", port)
@@ -42,7 +39,7 @@ func RunKharvestServer() {
 	}
 	grpcServer := grpc.NewServer()
 	server := &server{
-		storage:  store.NewInMemStore(util.BuildKeyString, 30),
+		storage:  GetStore(),
 		dedupers: DeduperMap{m: map[string]*Deduper{}},
 	}
 	server.initDedupers()
@@ -54,7 +51,6 @@ func RunKharvestServer() {
 		log.Fatalf("[kharvest] [error] failed to serve: %v", err)
 		os.Exit(1)
 	}
-
 }
 
 //Deduper hold chan for a given sign
@@ -118,7 +114,8 @@ func (s *server) initDedupers() {
 }
 
 func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*pb.NotifyReply, error) {
-	log.Printf("[kharvest] [%s/%s] [%s] [%s] Receive Notification", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), dataSignature.GetMd5())
+	str64 := base64.StdEncoding.EncodeToString([]byte(dataSignature.GetMd5()))
+	log.Printf("[kharvest] [%s/%s] [%s] [%s] Receive Notification", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
 	key := util.BuildKeyString(dataSignature)
 	//Try in read only mode
 	s.dedupers.RLock()
@@ -126,7 +123,7 @@ func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*
 	s.dedupers.RUnlock()
 	if ok {
 		if deduper == nil {
-			log.Printf("[kharvest] [warning] [%s/%s] [%s] [%s] No deduper(1) -> Ack", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), dataSignature.GetMd5())
+			log.Printf("[kharvest] [warning] [%s/%s] [%s] [%s] No deduper(1) -> Ack", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
 			return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
 		}
 		return deduper.BuildResponse(key)
@@ -137,7 +134,7 @@ func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*
 	if deduper, ok := s.dedupers.m[key]; ok {
 		s.dedupers.Unlock()
 		if deduper == nil {
-			log.Printf("[kharvest] [warning] [%s/%s] [%s] [%s] No deduper(2) -> Ack", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), dataSignature.GetMd5())
+			log.Printf("[kharvest] [warning] [%s/%s] [%s] [%s] No deduper(2) -> Ack", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
 			return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
 		}
 
@@ -148,30 +145,31 @@ func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*
 	s.dedupers.m[key] = deduper
 	s.dedupers.Unlock()
 	deduper.start(2 * time.Second)
-	log.Printf("[kharvest] [%s/%s] [%s] [%s] Send store request", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), dataSignature.GetMd5())
+	log.Printf("[kharvest] [%s/%s] [%s] [%s] Send store request", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
 	return &pb.NotifyReply{Action: pb.NotifyReply_STORE_REQUESTED}, nil
 }
 
 func (s *server) Store(ctx context.Context, data *pb.Data) (*pb.StoreReply, error) {
-	log.Printf("[kharvest] [%s/%s] [%s] [%s] Store receive, length %d", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), data.Signature.GetMd5(), len(data.Data))
+	str64 := base64.StdEncoding.EncodeToString([]byte(data.Signature.GetMd5()))
+	log.Printf("[kharvest] [%s/%s] [%s] [%s] Store receive, length %d", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), str64, len(data.Data))
 
 	key := util.BuildKeyString(data.Signature)
 	s.dedupers.RLock()
 	deduper, ok := s.dedupers.m[key]
 	s.dedupers.RUnlock()
 	if !ok {
-		log.Printf("[kharvest] [%s/%s] [%s] [%s] Deduper was already cleaned.", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), data.Signature.GetMd5())
+		log.Printf("[kharvest] [%s/%s] [%s] [%s] Deduper was already cleaned.", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), str64)
 		return &pb.StoreReply{}, nil
 	}
 	err := s.storage.Store(data)
 	deduper.stop()
 
 	if err != nil {
-		log.Printf("[kharvest] [error] [%s/%s] [%s] [%s] Storage error: %v", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), data.Signature.GetMd5(), err)
+		log.Printf("[kharvest] [error] [%s/%s] [%s] [%s] Storage error: %v", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), str64, err)
 		return nil, err
 	}
 
-	log.Printf("[kharvest] [%s/%s] [%s] [%s] Store complete", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), data.Signature.GetMd5())
+	log.Printf("[kharvest] [%s/%s] [%s] [%s] Store complete", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), str64)
 
 	return &pb.StoreReply{}, nil
 }
