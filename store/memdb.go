@@ -1,7 +1,6 @@
 package store
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log"
 	"strconv"
@@ -112,7 +111,7 @@ func (ims *InMemStore) Store(data *pb.Data) error {
 		return err
 	}
 
-	str64 := base64.StdEncoding.EncodeToString([]byte(data.Signature.GetMd5()))
+	str64 := util.MD5toStr64(data.Signature)
 	log.Printf("[kharvest] [InMemStore] [Store] %s/%s/%s MD5:%s", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), str64)
 
 	txn := ims.db.Txn(true)
@@ -131,7 +130,7 @@ func (ims *InMemStore) Reference(dataSignature *pb.DataSignature) error {
 		return err
 	}
 
-	str64 := base64.StdEncoding.EncodeToString([]byte(dataSignature.GetMd5()))
+	str64 := util.MD5toStr64(dataSignature)
 	log.Printf("[kharvest] [InMemStore] [Reference] %s/%s/%s MD5:%s", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
 
 	if dataSignature.Timestamp == nil {

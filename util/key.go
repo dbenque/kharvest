@@ -1,7 +1,11 @@
 package util
 
-import pb "github.com/dbenque/kharvest/kharvest"
-import "fmt"
+import (
+	"encoding/base64"
+	"fmt"
+
+	pb "github.com/dbenque/kharvest/kharvest"
+)
 
 //BuildKeyString generate a unique string from the DataSignature
 func BuildKeyString(dataSignature *pb.DataSignature) string {
@@ -37,4 +41,8 @@ func DefaultValueForSignature(dataSignature *pb.DataSignature) error {
 		dataSignature.Metadata = map[string]string{"None": "None"}
 	}
 	return nil
+}
+
+func MD5toStr64(dataSignature *pb.DataSignature) string {
+	return base64.StdEncoding.EncodeToString([]byte(dataSignature.GetMd5()))
 }

@@ -26,7 +26,7 @@ type serverUserAPI struct {
 var _ pb.KharvestUserAPIServer = &serverUserAPI{}
 
 //RunKharvestServerUserAPI Runs the userAPI server for kharvest
-func RunKharvestServerUserAPI() {
+func RunKharvestServerUserAPI(storage store.Store) {
 	log.Println("[kharvestuserAPI] starting server...")
 	lis, err := net.Listen("tcp", portAPIUser)
 	if err != nil {
@@ -36,7 +36,7 @@ func RunKharvestServerUserAPI() {
 
 	grpcServer := grpc.NewServer()
 	server := &serverUserAPI{
-		storage: GetStore(),
+		storage: storage,
 	}
 	pb.RegisterKharvestUserAPIServer(grpcServer, server)
 	// Register reflection service on gRPC server.

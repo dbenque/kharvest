@@ -31,7 +31,7 @@ type server struct {
 var _ pb.KharvestServer = &server{}
 
 //RunKharvestServer run the server for kharvest
-func RunKharvestServer() {
+func RunKharvestServer(storage store.Store) {
 	log.Println("[kharvest] starting server...")
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
@@ -40,7 +40,7 @@ func RunKharvestServer() {
 	}
 	grpcServer := grpc.NewServer()
 	server := &server{
-		storage:  GetStore(),
+		storage:  storage,
 		dedupers: DeduperMap{m: map[string]*Deduper{}},
 	}
 	server.initDedupers()
