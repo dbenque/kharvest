@@ -28,10 +28,23 @@ func main() {
 	defer conn.Close()
 	kharvestUserAPI := pb.NewKharvestUserAPIClient(conn)
 
-	reply, err := kharvestUserAPI.Keys(context.Background(), &google_protobuf.Empty{})
-	if err != nil {
-		os.Stderr.Write([]byte(err.Error()))
-		os.Exit(1)
+	{
+		reply, err := kharvestUserAPI.Keys(context.Background(), &google_protobuf.Empty{})
+		if err != nil {
+			os.Stderr.Write([]byte(err.Error()))
+			os.Exit(1)
+		}
+		fmt.Printf("%#v\n", reply)
 	}
-	fmt.Printf("%#v\n", reply)
+	fmt.Println("-------")
+
+	{
+		reply, err := kharvestUserAPI.PodReferences(context.Background(), &pb.PodIdentifier{Namespace: "default", PodName: "kharvestclient-244272239-sdh0t"})
+		if err != nil {
+			os.Stderr.Write([]byte(err.Error()))
+			os.Exit(1)
+		}
+		fmt.Printf("%#v\n", reply)
+	}
+
 }

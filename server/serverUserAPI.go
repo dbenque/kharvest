@@ -4,6 +4,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	pb "github.com/dbenque/kharvest/kharvest"
 	"github.com/dbenque/kharvest/store"
@@ -57,5 +58,34 @@ func (s *serverUserAPI) Keys(context.Context, *google_protobuf.Empty) (*pb.KeysR
 		reply.Keys[i] = key
 		i++
 	}
+	return reply, nil
+}
+
+func (s *serverUserAPI) SameReferences(ctxt context.Context, dataSignature *pb.DataSignature) (*pb.DataSignatures, error) {
+	log.Printf("[kharvestUserAPI] SameReferences")
+
+	result := s.storage.GetSameReferences(dataSignature)
+	reply := &pb.DataSignatures{Signatures: result}
+	return reply, nil
+}
+func (s *serverUserAPI) PodReferences(ctx context.Context, podidentifier *pb.PodIdentifier) (*pb.DataSignatures, error) {
+	log.Printf("[kharvestUserAPI] PodReferences")
+
+	result := s.storage.GetPodReferences(podidentifier.Namespace, podidentifier.PodName)
+	reply := &pb.DataSignatures{Signatures: result}
+	return reply, nil
+}
+func (s *serverUserAPI) ReferencesAt(ctx context.Context, tf *pb.TimeFrame) (*pb.DataSignatures, error) {
+	log.Printf("[kharvestUserAPI] ReferencesAt")
+
+	result := s.storage.GetReferencesAt(time.Unix(tf.From.GetSeconds(), int64(tf.From.GetNanos())), time.Unix(tf.To.GetSeconds(), int64(tf.From.GetNanos())))
+	reply := &pb.DataSignatures{Signatures: result}
+	return reply, nil
+}
+func (s *serverUserAPI) ReferencesForMeta(ctx context.Context, kv *pb.KeyValuePair) (*pb.DataSignatures, error) {
+	log.Printf("[kharvestUserAPI] ReferencesForMeta")
+
+	result := s.storage.GetReferencesForMeta(kv.Key, kv.Pair)
+	reply := &pb.DataSignatures{Signatures: result}
 	return reply, nil
 }

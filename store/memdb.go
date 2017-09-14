@@ -1,7 +1,9 @@
 package store
 
 import (
+	"encoding/base64"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -106,23 +108,38 @@ func NewInMemStore(keyBuilderFunc KeyBuilderFunction, timePeriodIndexSeconds int
 
 //Store the content of the file. Return the number of version and the number of reference for the given version.
 func (ims *InMemStore) Store(data *pb.Data) error {
+	if err := util.DefaultValueForSignature(data.GetSignature()); err != nil {
+		return err
+	}
+
+	str64 := base64.StdEncoding.EncodeToString([]byte(data.Signature.GetMd5()))
+	log.Printf("[kharvest] [InMemStore] [Store] %s/%s/%s MD5:%s", data.Signature.GetNamespace(), data.Signature.GetPodName(), data.Signature.GetFilename(), str64)
+
 	txn := ims.db.Txn(true)
 	if err := txn.Insert("data", data); err != nil {
 		txn.Abort()
 		return err
 	}
 	txn.Commit()
-	return nil
+
+	return ims.Reference(data.GetSignature())
 }
 
 //Reference associate all the metadata of the signature to the underlying data that must have been previously stored
 func (ims *InMemStore) Reference(dataSignature *pb.DataSignature) error {
+	if err := util.DefaultValueForSignature(dataSignature); err != nil {
+		return err
+	}
+
+	str64 := base64.StdEncoding.EncodeToString([]byte(dataSignature.GetMd5()))
+	log.Printf("[kharvest] [InMemStore] [Reference] %s/%s/%s MD5:%s", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
+
 	if dataSignature.Timestamp == nil {
 		dataSignature.Timestamp = &timestamp.Timestamp{Seconds: time.Now().Unix()}
 	}
 	txn := ims.db.Txn(true)
 	if err := txn.Insert("reference", dataSignature); err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("Transaction abort:" + err.Error())
 		txn.Abort()
 		return err
 	}
