@@ -9,6 +9,8 @@ The server is link to a store to persist harvested files. The storage backend ca
 
 The client can be directly be embedded in the application if it is written in Go by calling the **client.RunKharvestClient** in your main. Also it can be run as a sidecar container, in that case pay attention to mount correctly the volume where the files (of the main container) to harvest are located.
 
+A complete demo of the tool with examples is available for a minikube environment in the folder demo.minikube. Read the **demo.md** for instructions before running the **demo.sh** script.
+
 ## The Server
 
 The server is pointed by a kubernetes service. Depending on your storage implementation, you can run (or not) several instances of the server. The demo runs only one server because it use a in memory database.

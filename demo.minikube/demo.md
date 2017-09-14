@@ -8,8 +8,18 @@ Prerequisit:
 - GOPATH set correctly
 
 Be sure that your GOPATH variable is correctly set because the demo does build code!
+To get GRPC and other dependency run once the following command:
+```
+go get ./...
+```
 
-You can run the demo in any namespace.Enter folder **demo.minikube** and run demo script **demo.sh**
+Now you can run the demo in any namespace.Enter folder **demo.minikube** and run demo script **demo.sh**
+
+Open another termial and run the following commands to monitor pods evolutions:
+
+```
+kubectl get pods -w
+```
 
 To clean the objects created by the script, used **clean.sh** located in the same folder.
 
