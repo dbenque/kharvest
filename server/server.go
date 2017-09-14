@@ -31,7 +31,8 @@ type server struct {
 var _ pb.KharvestServer = &server{}
 
 //RunKharvestServer run the server for kharvest
-func RunKharvestServer() {
+func RunKharvestServer(storage store.Store) {
+	log.Println("[kharvest] starting server...")
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("[kharvest] [error] failed to listen: %v", err)
@@ -39,7 +40,7 @@ func RunKharvestServer() {
 	}
 	grpcServer := grpc.NewServer()
 	server := &server{
-		storage:  GetStore(),
+		storage:  storage,
 		dedupers: DeduperMap{m: map[string]*Deduper{}},
 	}
 	server.initDedupers()
@@ -124,9 +125,14 @@ func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*
 	if ok {
 		if deduper == nil {
 			log.Printf("[kharvest] [warning] [%s/%s] [%s] [%s] No deduper(1) -> Ack", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
+			s.storage.Reference(dataSignature)
 			return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
 		}
-		return deduper.BuildResponse(key)
+		r, err := deduper.BuildResponse(key)
+		if err == nil && r != nil && r.GetAction() == pb.NotifyReply_ACK {
+			s.storage.Reference(dataSignature)
+		}
+		return r, err
 	}
 
 	//Ok grant write access
@@ -135,10 +141,15 @@ func (s *server) Notify(ctx context.Context, dataSignature *pb.DataSignature) (*
 		s.dedupers.Unlock()
 		if deduper == nil {
 			log.Printf("[kharvest] [warning] [%s/%s] [%s] [%s] No deduper(2) -> Ack", dataSignature.GetNamespace(), dataSignature.GetPodName(), dataSignature.GetFilename(), str64)
+			s.storage.Reference(dataSignature)
 			return &pb.NotifyReply{Action: pb.NotifyReply_ACK}, nil
 		}
 
-		return deduper.BuildResponse(key)
+		r, err := deduper.BuildResponse(key)
+		if err == nil && r != nil && r.GetAction() == pb.NotifyReply_ACK {
+			s.storage.Reference(dataSignature)
+		}
+		return r, err
 	}
 
 	deduper = &Deduper{storeRequestChan: make(chan bool), stopChan: make(chan struct{})}

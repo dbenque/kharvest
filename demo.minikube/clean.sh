@@ -1,2 +1,2 @@
 #!/bin/bash
-kubectl delete deployment,rs,rc,configmap -l demo=kharvest
+kubectl delete deployment,rs,rc,configmap,service -l demo=kharvest

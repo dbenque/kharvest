@@ -19,17 +19,18 @@ service Kharvest {
 service KharvestUserAPI {
 	//Keys return the key strings generated from the content of the store
 	rpc Keys (google.protobuf.Empty) returns (KeysReply) {}
-	//GetSameReferences return all the references to the same data
-	//GetSameReferences(dataSignature *pb.DataSignature) []*pb.DataSignature
+  
+  //GetSameReferences return all the references to the same data
+  rpc SameReferences (DataSignature) returns (DataSignatures) {}
   
   //GetPodReferences return all the references for a given pod
-	//GetPodReferences(namespace, podName string) []*pb.DataSignature
+	rpc PodReferences (PodIdentifier) returns (DataSignatures) {}
   
   //GetReferencesAt return all the references for a given pod
-  //GetReferencesAt(from, to time.Time) []*pb.DataSignature
+  rpc ReferencesAt (TimeFrame) returns (DataSignatures) {}
   
-	//GetReferencesForMeta return all the references for a given pod
-	//GetReferencesForMeta(key, value string) []*pb.DataSignature
+	//GetReferencesForMeta return all the references for a KV metadata
+	rpc ReferencesForMeta (KeyValuePair) returns (DataSignatures) {}
 }
 
 message KeysReply {
@@ -44,6 +45,25 @@ message DataSignature {
   string namespace=4;
   string podName=5;
   map<string,string> metadata=6;
+}
+
+message TimeFrame {
+  google.protobuf.Timestamp from =1;
+  google.protobuf.Timestamp to =2;
+}
+
+message KeyValuePair {
+  string key =1;
+  string pair =2;
+}
+
+message PodIdentifier {
+  string podName =1;
+  string namespace =2;
+}
+
+message DataSignatures {
+  repeated DataSignature signatures = 1;
 }
 
 message NotifyReply {

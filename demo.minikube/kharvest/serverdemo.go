@@ -1,15 +1,13 @@
 package main
 
 import (
-	"flag"
-
 	"github.com/dbenque/kharvest/server"
-	"github.com/dbenque/toKube/deployer"
+	"github.com/dbenque/kharvest/store"
+	"github.com/dbenque/kharvest/util"
 )
 
 func main() {
-	flag.Parse()
-	deployer.AutoDeploy()
-
-	server.RunKharvestServer()
+	storage := store.NewInMemStore(util.BuildKeyString, 30)
+	go server.RunKharvestServerUserAPI(storage)
+	server.RunKharvestServer(storage)
 }
