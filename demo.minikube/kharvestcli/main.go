@@ -114,7 +114,7 @@ func printHelp() {
 	fmt.Printf("     parameters: p=[podname] n=[namespace] i=[index]\n")
 	fmt.Println("")
 	fmt.Println("Example: ")
-	fmt.Println(os.Args[0], " -k=192.168.99.100:32140 -cmd=pod -n=kharvestclient-244272239-2ncxr")
-	fmt.Println(os.Args[0], " -k=192.168.99.100:32140 -cmd=same -n=kharvestclient-244272239-2ncxr -i=1")
+	fmt.Println(os.Args[0], " -k=192.168.99.100:32140 -cmd=pod -p=kharvestclient-244272239-2ncxr")
+	fmt.Println(os.Args[0], " -k=192.168.99.100:32140 -cmd=same -p=kharvestclient-244272239-2ncxr -i=1")
 
 }
