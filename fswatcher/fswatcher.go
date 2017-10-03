@@ -86,14 +86,18 @@ func StartFileWatcher(filepathes []string) *FileWatcher {
 				if !ok {
 					return
 				}
-				//log.Printf("event: %#v", event)
+				log.Printf("[fswatcher] event: %s", event.String())
+
 				switch event.Op {
 				case fsnotify.Create, fsnotify.Write:
 					fc := NewFileContent(event.Name)
+					if len(fc.Content) == 0 {
+						log.Printf("[fswatcher] [warning] empty content")
+					}
 					fc.Op = event.Op
 					fileWatcher.resultChan <- fc
 				case fsnotify.Rename, fsnotify.Remove:
-					fc := &FileContent{Content: nil, MD5: [md5.Size]byte{}}
+					fc := &FileContent{Filepath: event.Name, Content: nil, MD5: [md5.Size]byte{}}
 					fc.Op = event.Op
 					fileWatcher.resultChan <- fc
 					//Restart a filewatch for new create
