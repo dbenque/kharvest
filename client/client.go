@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"log"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -55,9 +56,12 @@ func RunKharvestClient(conf *Config) {
 				Data:      event.Content,
 				Signature: &pb.DataSignature{Filename: event.Filepath, Md5: string(event.MD5[:md5.Size]), PodName: conf.podName, Namespace: conf.namespace},
 			}
-			r, err := kharvestServer.Notify(context.Background(), data.Signature)
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Second)
+			r, err := kharvestServer.Notify(ctx, data.Signature)
+			cancelFunc()
 			if err != nil {
-				log.Printf("[kharvest] [error] Error on Notify: %v", err) //Error
+				log.Printf("[kharvest] [error] Error on Notify (item will be resent): %v", err) //Error
+				fileWatcher.Resend(event)
 			} else if r.Action == pb.NotifyReply_ACK {
 				log.Printf("[kharvest] Server ack for file: %s", event.Filepath)
 			} else if r.Action == pb.NotifyReply_STORE_REQUESTED {
@@ -70,5 +74,4 @@ func RunKharvestClient(conf *Config) {
 			}
 		}
 	}()
-
 }

@@ -63,15 +63,9 @@ kubectl create -f kharvestclient.deployment.yaml
 cd ..
 echo -e $YELLOW"Waiting for the client to be scheduled and ready ..."$NO
 waitReplicasOnDeployment kharvestclient 1
-echo -e $YELLOW"Waiting for logs..."$NO
-sleep 3
-echo -e $YELLOW"Here are the logs of the kharvest server:"$NO
-kubectl logs $(kubectl get pod -l run=kharvest -ojsonpath='{.items[0].metadata.name}')
-echo
-echo -e $YELLOW"Here are the logs of the kharvest client:"$NO
-kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[0].metadata.name}')
-echo
-
+echo -e $YELLOW"Opening log windows...wait for connectivity to happen and more logs in the server..."$NO
+xterm -geometry 155x40 -sb -sl 1000 -e "kubectl logs $(kubectl get pod -l run=kharvest -ojsonpath='{.items[0].metadata.name}') -f" &
+xterm -geometry 155x40 -sb -sl 1000 -e "kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[0].metadata.name}') -f" &
 echo -e $GREEN
 read -n 1 -s -r -p "Now we are going to scale the number of replicas for the client to 3. They will have the same files (distributed by configmap). Press any key to proceed..."
 echo -e $NO
@@ -80,10 +74,15 @@ kubectl scale --replicas=3 deployment/kharvestclient
 echo
 waitReplicasOnDeployment kharvestclient 3
 echo -e $NO
-echo -e $YELLOW"Here are the logs of the kharvest server:"$NO
-kubectl logs $(kubectl get pod -l run=kharvest -ojsonpath='{.items[0].metadata.name}')
-echo
+echo -e $YELLOW"Look at the server logs, they should have been updated by notifications from the added pods."$NO
 echo -e $BOLD"Note that the server has just acknowledged some Notifications; no store was performed since it recognized the files, only references are added."$NO
+echo
+read -n 1 -s -r -p "Press any key to continue the demo..."
+echo
+echo -e $GREEN"An edit window will pop-up, edit the content of file3 in the configmap and save (ESC+:wq). This will modify the content of some files in the pods."$NO
+xterm -geometry 120x40 -sb -sl 1000 -e "kubectl edit cm cmkharvest"
+echo -e $YELLOW"Look at the server logs, they should have been updated by notifications from the added pods."$NO
+echo -e $YELLOW"Remark: the AAAAAAAAAAAAAAAAAAAAAA== and 0 size happens because configmaps are using symlinks and not plain files.A link switch is seen as a file REMOVE+CREATE"$NO
 echo
 read -n 1 -s -r -p "Press any key to continue the demo..."
 ###CLI
@@ -93,14 +92,15 @@ go build -o democli kharvestcli/main.go
 
 KHARVESTURL=$(minikube ip):$(kubectl get svc kharvest -ojsonpath='{.spec.ports[?(@.name=="user")].nodePort}')
 APOD=$(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[0].metadata.name}')
+NAMESPACE=$(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[0].metadata.namespace}')
 echo -e $YELLOW"List all the files referenced by a pod:"$NO
-echo -e $BOLD"./democli -k=$KHARVESTURL -cmd=pod -p=$APOD"$NO
-./democli -k=$KHARVESTURL -cmd=pod -p=$APOD
+echo -e $BOLD"./democli -k=$KHARVESTURL -cmd=pod -p=$APOD -n=$NAMESPACE"$NO
+./democli -k=$KHARVESTURL -cmd=pod -n=$NAMESPACE -p=$APOD
 echo
 sleep 2
 echo -e $YELLOW"List all the pods that reference the same file that was presented at index=0:"$NO
-echo -e $BOLD"./democli -k=$KHARVESTURL -cmd=same -p=$APOD -i=0"$NO
-./democli -k=$KHARVESTURL -cmd=same -p=$APOD -i=0
+echo -e $BOLD"./democli -k=$KHARVESTURL -cmd=same -p=$APOD -n=$NAMESPACE -i=0"$NO
+./democli -k=$KHARVESTURL -cmd=same -p=$APOD -n=$NAMESPACE -i=0
 echo
 sleep 2
 # Let the user play
@@ -114,6 +114,6 @@ echo -e $BOLD"kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{
 echo -e $BOLD"kubectl logs $(kubectl get pod -l run=kharvestclient -ojsonpath='{.items[2].metadata.name}')"$NO
 echo
 echo -e $GREEN"Or use the CLI (see example above):"$NO
-echo -e $BOLD"./democli -k=$KHARVESTURL -cmd=[pod|same] ..."$NO
+echo -e $BOLD"./democli -k=$KHARVESTURL -cmd=[pod|same] -n=$NAMESPACE ..."$NO
 
 echo

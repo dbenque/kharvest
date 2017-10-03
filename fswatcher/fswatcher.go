@@ -16,10 +16,11 @@ import (
 
 //FileContent notification with the type of modification and content
 type FileContent struct {
-	Filepath string
-	Content  []byte
-	MD5      [md5.Size]byte
-	Op       fsnotify.Op
+	Filepath      string
+	Content       []byte
+	MD5           [md5.Size]byte
+	Op            fsnotify.Op
+	sendTentative int
 }
 
 //NewFileContent builds a new filecontent for the given paths
@@ -53,6 +54,22 @@ type FileWatcher struct {
 //GetEventChan return the channel for the events related to file changes
 func (f *FileWatcher) GetEventChan() <-chan *FileContent {
 	return f.resultChan
+}
+
+//Resend resend event in one second (max 20 attemps per items)
+func (f *FileWatcher) Resend(fc *FileContent) {
+	fc.sendTentative++
+	if fc.sendTentative < 20 {
+		go func() {
+			T := time.NewTimer(time.Second)
+			defer T.Stop()
+			<-T.C
+			f.resultChan <- fc
+		}()
+	} else {
+		log.Printf("Error in watcher: more than 20 resend tentative for %s", fc.Filepath)
+	}
+	return
 }
 
 //Stop stop the watcher.
@@ -212,8 +229,10 @@ func (f *FileWatcher) startSingleFileWatch(filepath string) {
 			fc.Op = fsnotify.Create
 			f.resultChan <- fc
 			f.Lock()
-			f.filepathes[filepath] = nil
-			close(cancelChan)
+			if cchan, ok := f.filepathes[filepath]; ok && cchan != nil {
+				delete(f.filepathes, filepath)
+				close(cchan)
+			}
 			f.Unlock()
 		case <-f.stopChan:
 			return // this is full stop of the watcher
